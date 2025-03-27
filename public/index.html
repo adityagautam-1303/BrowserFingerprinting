@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Browser Fingerprinting Demo</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/fingerprintjs2/2.1.0/fingerprint2.min.js"></script>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      padding: 40px;
+      background-color: #f0f2f5;
+      color: #333;
+    }
+
+    h2 {
+      font-size: 28px;
+      color: #2c3e50;
+    }
+
+    button {
+      padding: 12px 24px;
+      font-size: 16px;
+      background-color: #2d89ef;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      margin-top: 15px;
+      transition: background-color 0.2s ease;
+    }
+
+    button:hover {
+      background-color: #1b61c2;
+    }
+
+    #visit-status {
+      margin-top: 15px;
+      font-size: 18px;
+      font-weight: bold;
+      color: #007b43;
+    }
+
+    table {
+      width: 100%;
+      margin-top: 25px;
+      border-collapse: collapse;
+      background: #fff;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+
+    th, td {
+      padding: 12px 15px;
+      border-bottom: 1px solid #ddd;
+      text-align: left;
+      word-break: break-word;
+    }
+
+    th {
+      background-color: #f7f7f7;
+      font-weight: 600;
+    }
+
+    tr:hover {
+      background-color: #f0f8ff;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: auto;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>Browser Fingerprinting Demo</h2>
+    <p>Click the button below to analyze and send your browser fingerprint to the server.</p>
+    <button onclick="getFingerprint()">Check My Fingerprint</button>
+    <div id="visit-status">Waiting...</div>
+
+    <table id="fingerprint-table" style="display: none;">
+      <thead>
+        <tr>
+          <th>Attribute</th>
+          <th>Value</th>
+        </tr>
+      </thead>
+      <tbody id="fp-body"></tbody>
+    </table>
+  </div>
+
+  <script>
+    async function getIntranetIPs() {
+      return new Promise((resolve) => {
+        const ips = [];
+        const pc = new RTCPeerConnection({ iceServers: [] });
+        pc.createDataChannel('');
+        pc.createOffer().then(offer => pc.setLocalDescription(offer));
+        pc.onicecandidate = event => {
+          if (!event || !event.candidate) {
+            pc.close();
+            resolve(ips.join('||'));
+            return;
+          }
+          const parts = event.candidate.candidate.split(' ');
+          const ip = parts[4];
+          if (!ips.includes(ip)) ips.push(ip);
+        };
+      });
+    }
+
+    async function getFingerprint() {
+      document.getElementById('visit-status').innerText = 'Collecting fingerprint...';
+      document.getElementById('fp-body').innerHTML = '';
+      document.getElementById('fingerprint-table').style.display = 'none';
+
+      const components = await new Promise(resolve => {
+        Fingerprint2.get(components => resolve(components));
+      });
+
+      const data = {};
+      components.forEach(c => data[c.key] = c.value);
+
+      // Enrich data per the paper
+      data.user_agent = navigator.userAgent;
+      data.platform = `${navigator.platform || ''}||${navigator.oscpu || ''}||${navigator.cpuClass || ''}`;
+      data.cookie = document.cookie || null;
+      data.color_depth = screen.colorDepth.toString();
+      data.screen_resolution = `${screen.width}x${screen.height}`;
+      data.timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      data.language = navigator.language;
+      data.local_storage = typeof localStorage !== 'undefined';
+      data.indexed_db = typeof indexedDB !== 'undefined';
+      data.open_database = typeof window.openDatabase !== 'undefined';
+      data.do_not_track = navigator.doNotTrack;
+
+      // Canvas
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      ctx.textBaseline = 'top';
+      ctx.font = "14px 'Arial'";
+      ctx.fillText("BrowserFingerprint", 2, 2);
+      data.canvas = Fingerprint2.x64hash128(canvas.toDataURL(), 31);
+
+      // WebGL
+      const gl = document.createElement('canvas').getContext('webgl');
+      if (gl) {
+        const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
+        const renderer = gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL);
+        data.webgl = Fingerprint2.x64hash128(renderer, 31);
+      }
+
+      // IPs
+      try {
+        const ipRes = await fetch('https://api.ipify.org?format=json');
+        const ipJson = await ipRes.json();
+        data.public_ip = ipJson.ip;
+      } catch (e) {
+        data.public_ip = 'Unavailable';
+      }
+
+      data.intranet_ip = await getIntranetIPs();
+
+      // Send to backend
+      const host = window.location.hostname;
+      console.log(host)
+      const res = await fetch(`/api/fingerprint`, {
+        // const res = await fetch(`http://${host}:3000/api/fingerprint`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+
+      const result = await res.json();
+
+      const statusText = result.isNewVisitor
+        ? `🟢 First-time visitor! Visit Count: 1`
+        : `🟡 Returning visitor — Visit Count: ${result.visitCount}, Last Visit: ${result.lastVisit}`;
+
+      document.getElementById('visit-status').innerText = statusText;
+
+      const tbody = document.getElementById('fp-body');
+      for (const key in data) {
+        const tr = document.createElement('tr');
+        const keyTd = document.createElement('td');
+        const valTd = document.createElement('td');
+        keyTd.textContent = key;
+        valTd.textContent = data[key];
+        tr.appendChild(keyTd);
+        tr.appendChild(valTd);
+        tbody.appendChild(tr);
+      }
+
+      document.getElementById('fingerprint-table').style.display = 'table';
+    }
+  </script>
+</body>
+</html>
