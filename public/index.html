@@ -352,12 +352,13 @@ function sha256(ascii) {
         delete data.indexedDb;
       }
       
-      const host = window.location.hostname;
-      const res = await fetch(`http://${host}:3000/api/fingerprint`, {
+      const BACKEND_URL = "https://browserfingerprinting-4.onrender.com/"; // Replace with actual URL
+      const res = await fetch(`${BACKEND_URL}/api/fingerprint`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
+        body: JSON.stringify(data),
       });
+
 
       const result = await res.json();
 
