@@ -1,5 +1,3 @@
-// server.js - Express backend for browser fingerprinting
-
 const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
@@ -9,13 +7,13 @@ const crypto = require('crypto');
 const stringSimilarity = require('string-similarity');
 const path = require('path');
 
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// const LOCAL_IP = '172.21.19.159';
-// Middleware
+
 app.use(cors({ origin: "*" }));
-app.use(bodyParser.json({ limit: '5mb' }));
+app.use(bodyParser.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.get('*', (req, res) => {
@@ -23,10 +21,16 @@ app.get('*', (req, res) => {
 });
 
 
-// Redis client setup
+
 const redisClient = redis.createClient({
-  url: process.env.REDIS_URL || 'redis://localhost:6379'
+  username: 'default',
+  password: 'XQqscuhOE5uIwLW9U9RrHCagRrWjbntJ',
+  socket: {
+      host: 'redis-18020.c124.us-central1-1.gce.redns.redis-cloud.com',
+      port: 18020
+  }
 });
+
 
 (async () => {
   try {
@@ -37,18 +41,18 @@ const redisClient = redis.createClient({
   }
 })();
 
-// MySQL connection setup
+
 const mysqlPool = mysql.createPool({
-  host: process.env.MYSQL_HOST || 'localhost',
-  user: process.env.MYSQL_USER || 'root',
-  password: process.env.MYSQL_PASSWORD || '12345678',
-  database: process.env.MYSQL_DATABASE || 'fingerprint_db',
+  host: 'bepq8mqhgapuxh61kegn-mysql.services.clever-cloud.com',
+  user: 'ud3ombl3zt3gcbgh',
+  password: 'X8WvBRQkm7X3ELSTayOQ',
+  database: 'bepq8mqhgapuxh61kegn',
   waitForConnections: true,
-  connectionLimit: 10,
+  connectionLimit: 5,
   queueLimit: 0
 });
 
-// Initialize database tables
+
 async function initializeDatabase() {
   try {
     const connection = await mysqlPool.getConnection();
@@ -58,11 +62,9 @@ async function initializeDatabase() {
         fingerprint_hash VARCHAR(64) NOT NULL,
         user_agent TEXT,
         platform VARCHAR(255),
-        cookie VARCHAR(255),
         canvas VARCHAR(64),
         webgl VARCHAR(64),
         public_ip VARCHAR(45),
-        intranet_ip TEXT,
         color_depth VARCHAR(20),
         screen_resolution VARCHAR(50),
         timezone VARCHAR(50),
@@ -72,7 +74,6 @@ async function initializeDatabase() {
         local_storage BOOLEAN,
         indexed_db BOOLEAN,
         open_database BOOLEAN,
-        do_not_track VARCHAR(10),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         last_visit TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         visit_count INT DEFAULT 1
@@ -87,26 +88,24 @@ async function initializeDatabase() {
 
 initializeDatabase();
 
-// AHP Feature weights from paper
+
 const weights = {
-  user_agent: 0.195,
-  platform: 0.065,
-  cookie: 0.043,
-  canvas: 0.075,
-  webgl: 0.065,
-  public_ip: 0.033,
-  intranet_ip: 0.033,
-  color_depth: 0.033,
-  screen_resolution: 0.033,
-  timezone: 0.045,
-  language: 0.11,
-  fonts: 0.065,
-  plugins: 0.04,
-  local_storage: 0.033,
-  indexed_db: 0.033,
-  open_database: 0.033,
-  do_not_track: 0.065
+  user_agent: 0.227,
+  platform: 0.076,
+  canvas: 0.087,
+  webgl: 0.076,
+  public_ip: 0.038,
+  color_depth: 0.038,
+  screen_resolution: 0.038,
+  timezone: 0.052,
+  language: 0.128,
+  fonts: 0.076,
+  plugins: 0.047,
+  local_storage: 0.038,
+  indexed_db: 0.038,
+  open_database: 0.038,
 };
+
 
 const thresholds = {
   user_agent: 0.8,
@@ -123,16 +122,6 @@ function calculateSimilarity(str1, str2) {
 }
 
 async function compareFingerprints(newFp, storedFp) {
-  if (newFp.fingerprint_hash === storedFp.fingerprint_hash) return true;
-
-  if (newFp.cookie && storedFp.cookie && newFp.cookie === storedFp.cookie) return true;
-  if (newFp.canvas && storedFp.canvas && newFp.canvas === storedFp.canvas) return true;
-
-  if (newFp.public_ip === storedFp.public_ip &&
-      newFp.intranet_ip && storedFp.intranet_ip &&
-      newFp.intranet_ip.split('||').some(ip => storedFp.intranet_ip.includes(ip))) {
-    return true;
-  }
 
   const longFeatures = ['user_agent', 'fonts', 'plugins'];
   let judgeList = [];
@@ -143,6 +132,7 @@ async function compareFingerprints(newFp, storedFp) {
     if (!newFp[feature] || !storedFp[feature]) continue;
 
     totalWeight += weights[feature];
+
     let similarity = 0;
 
     if (longFeatures.includes(feature)) {
@@ -155,19 +145,18 @@ async function compareFingerprints(newFp, storedFp) {
   }
 
   const similarityScore = judgeList.reduce((sum, val) => sum + val, 0) / totalWeight;
-  return similarityScore >= FINGERPRINT_THRESHOLD;
+
+  return similarityScore ;
 }
 
 function sanitizeFingerprintData(fpData) {
   return {
     fingerprint_hash: fpData.fingerprint_hash,
-    user_agent: String(fpData.user_agent || ''),
+    user_agent: String(fpData.userAgent || ''),
     platform: String(fpData.platform || ''),
-    cookie: fpData.cookie || null,
     canvas: String(fpData.canvas || ''),
     webgl: String(fpData.webgl || ''),
     public_ip: String(fpData.public_ip || ''),
-    intranet_ip: String(fpData.intranet_ip || ''),
     color_depth: String(fpData.color_depth || ''),
     screen_resolution: String(fpData.screen_resolution || ''),
     timezone: String(fpData.timezone || ''),
@@ -176,35 +165,49 @@ function sanitizeFingerprintData(fpData) {
     plugins: Array.isArray(fpData.plugins) ? fpData.plugins.join(', ') : String(fpData.plugins || ''),
     local_storage: fpData.local_storage ? 1 : 0,
     indexed_db: fpData.indexed_db ? 1 : 0,
-    open_database: fpData.open_database ? 1 : 0,
-    do_not_track: fpData.do_not_track || null
+    open_database: fpData.open_database ? 1: 0,
   };
 }
+
 
 app.post('/api/fingerprint', async (req, res) => {
   try {
     const rawData = req.body;
-    const fpHash = crypto.createHash('sha256')
-      .update(JSON.stringify(rawData))
-      .digest('hex');
-
+    const fpHash = crypto.createHash('sha256').update(JSON.stringify(rawData)).digest('hex');
     rawData.fingerprint_hash = fpHash;
     const fpData = sanitizeFingerprintData(rawData);
 
+
     const cached = await redisClient.get(`fp:${fpHash}`);
+
+    let similarity_result=0;
     if (cached) {
       const parsed = JSON.parse(cached);
       const connection = await mysqlPool.getConnection();
+      const last_visits = await connection.query('SELECT last_visit FROM fingerprints WHERE id = ?',
+        [parsed.id]);
       await connection.query(
         'UPDATE fingerprints SET visit_count = visit_count + 1, last_visit = NOW() WHERE id = ?',
         [parsed.id]
       );
+      similarity_result = 1;
+      const visits= await connection.query('SELECT visit_count FROM fingerprints WHERE id = ?',
+        [parsed.id]);
+
+      const last_visits1 = await connection.query('SELECT last_visit FROM fingerprints WHERE id = ?',
+          [parsed.id]);
+
       connection.release();
+
+      await redisClient.set(`fp:${fpHash}`, JSON.stringify({
+        id: parsed.id,
+      }), { EX: 86400 });
 
       return res.json({
         isNewVisitor: false,
-        lastVisit: parsed.last_visit,
-        visitCount: parsed.visit_count + 1
+        lastVisit: last_visits[0][0].last_visit,
+        visitCount: visits[0][0].visit_count,
+        similarity: similarity_result
       });
     }
 
@@ -212,10 +215,14 @@ app.post('/api/fingerprint', async (req, res) => {
     const [rows] = await connection.query('SELECT * FROM fingerprints');
 
     let matchFound = false;
-    let matchedFp = null;
+    let matchedFp = null; 
+    
 
     for (const stored of rows) {
-      if (await compareFingerprints(fpData, stored)) {
+
+      if (await compareFingerprints(fpData, stored) >= FINGERPRINT_THRESHOLD) {
+        const similarity = await compareFingerprints(fpData,stored);
+        similarity_result = similarity;
         matchFound = true;
         matchedFp = stored;
         break;
@@ -230,16 +237,16 @@ app.post('/api/fingerprint', async (req, res) => {
 
       await redisClient.set(`fp:${fpHash}`, JSON.stringify({
         id: matchedFp.id,
-        last_visit: matchedFp.last_visit,
-        visit_count: matchedFp.visit_count + 1
       }), { EX: 86400 });
+
 
       connection.release();
 
       return res.json({
         isNewVisitor: false,
         lastVisit: matchedFp.last_visit,
-        visitCount: matchedFp.visit_count + 1
+        visitCount: matchedFp.visit_count + 1,
+        similarity: similarity_result
       });
     }
 

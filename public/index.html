@@ -7,14 +7,57 @@
   <style>
     body {
       font-family: 'Segoe UI', sans-serif;
-      padding: 40px;
-      background-color: #f0f2f5;
+      margin: 0;
+      padding: 0;
+      background-color: #f2f5e9;
       color: #333;
+      /* background-image: url('/bg1.jpg');  */
+      background-size: cover;
+      background-position: center;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 40px 20px;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+
+    h1 {
+      font-size: 28px;
+      margin-bottom: 5px;
+      color: #000;
+      font-weight: bold;
+    }
+
+    .subheader {
+      font-size: 18px;
+      margin-bottom: 10px;
+    }
+
+    .project-info {
+      text-align: center;
+      margin: 20px 0;
     }
 
     h2 {
-      font-size: 28px;
-      color: #2c3e50;
+      font-size: 22px;
+      margin-bottom: 20px;
+      color: #000;
+    }
+
+    .student-info {
+      text-align: center;
+      margin: 10px 0;
+    }
+
+    .academic-session {
+      text-align: center;
+      margin: 20px 0 40px 0;
     }
 
     button {
@@ -25,7 +68,8 @@
       border: none;
       border-radius: 6px;
       cursor: pointer;
-      margin-top: 15px;
+      margin: 30px auto;
+      display: block;
       transition: background-color 0.2s ease;
     }
 
@@ -38,14 +82,15 @@
       font-size: 18px;
       font-weight: bold;
       color: #007b43;
+      text-align: center;
     }
 
     table {
       width: 100%;
-      margin-top: 25px;
+      margin-top: 20px;
       border-collapse: collapse;
       background: #fff;
-      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+      box-shadow: 0 5px 5px rgba(0,0,0,0.1);
     }
 
     th, td {
@@ -63,24 +108,38 @@
     tr:hover {
       background-color: #f0f8ff;
     }
-
-    .container {
-      max-width: 900px;
-      margin: auto;
-    }
   </style>
 </head>
 <body>
   <div class="container">
-    <h2>Browser Fingerprinting Demo</h2>
-    <p>Click the button below to analyze and send your browser fingerprint to the server.</p>
+    <div class="header">
+      <h1>DEPARTMENT OF INFORMATION TECHNOLOGY</h1>
+      <div class="subheader">NATIONAL INSTITUTE OF TECHNOLOGY KARNATAKA, SURATHKAL-575025</div>
+    </div>
+
+    <div class="project-info">
+      <h2>Information Assurance and Security (IT352) Course Project</h2>
+      <div>Title "Tracking Your Browser with High-Performance
+        Browser Fingerprint Recognition Model"</div>
+    </div>
+
+    <div class="student-info">
+      <div>Carried out by</div>
+      <div>Aditya Gautam (221IT004)</div>
+      <div>Madhav Dhingra (221IT042)</div>
+    </div>
+
+    <div class="academic-session">
+      During Academic Session January – April 2025
+    </div>
+
     <button onclick="getFingerprint()">Check My Fingerprint</button>
     <div id="visit-status">Waiting...</div>
 
     <table id="fingerprint-table" style="display: none;">
       <thead>
         <tr>
-          <th>Attribute</th>
+          <th style="min-width: 120px;">Attribute</th>
           <th>Value</th>
         </tr>
       </thead>
@@ -108,22 +167,145 @@
       });
     }
 
+function hasLiedLanguages() {
+  const language = navigator.language;
+  const languages = navigator.languages;
+  const headerLang = getAcceptLanguageFromHeaders(); 
+  return !languages.includes(headerLang) || language !== headerLang;
+}
+
+function hasLiedResolution() {
+  const screenWidth = screen.width;
+  const screenHeight = screen.height;
+  const realWidth = window.innerWidth;
+  const realHeight = window.innerHeight;
+  return Math.abs(screenWidth - realWidth) > 100 || Math.abs(screenHeight - realHeight) > 100;
+}
+
+function hasLiedOs() {
+  const platform = navigator.platform.toLowerCase();
+  const userAgent = navigator.userAgent.toLowerCase();
+  if (platform.includes('mac') && !userAgent.includes('mac')) return true;
+  if (platform.includes('win') && !userAgent.includes('windows')) return true;
+  if (platform.includes('linux') && !userAgent.includes('linux')) return true;
+  return false;
+}
+
+function hasLiedBrowser() {
+  const userAgent = navigator.userAgent;
+  const isChrome = !!window.chrome && userAgent.includes('Chrome');
+  const isFirefox = typeof InstallTrigger !== 'undefined';
+  if (isChrome && !userAgent.includes('Chrome')) return true;
+  if (isFirefox && !userAgent.includes('Firefox')) return true;
+  return false;
+}
+
+function sha256(ascii) {
+  function rightRotate(value, amount) {
+    return (value >>> amount) | (value << (32 - amount));
+  }
+
+  var mathPow = Math.pow;
+  var maxWord = mathPow(2, 32);
+  var lengthProperty = 'length';
+  var i, j;
+  var result = '';
+
+  var words = [];
+  var asciiBitLength = ascii[lengthProperty] * 8;
+
+  var hash = [], k = [];
+  var primeCounter = 0;
+
+  var isPrime = function(n) {
+    for (var i = 2, sqrt = Math.sqrt(n); i <= sqrt; i++) {
+      if (n % i === 0) return false;
+    }
+    return true;
+  };
+
+  var getFractionalBits = function(n) {
+    return ((n - Math.floor(n)) * maxWord) | 0;
+  };
+
+  for (i = 2; primeCounter < 64; i++) {
+    if (isPrime(i)) {
+      if (primeCounter < 8) hash[primeCounter] = getFractionalBits(Math.pow(i, 1 / 2));
+      k[primeCounter++] = getFractionalBits(Math.pow(i, 1 / 3));
+    }
+  }
+
+  ascii += '\x80';
+  while (ascii[lengthProperty] % 64 - 56) ascii += '\x00';
+  for (i = 0; i < ascii[lengthProperty]; i++) {
+    j = ascii.charCodeAt(i);
+    if (j >> 8) return;
+    words[i >> 2] |= j << ((3 - i) % 4) * 8;
+  }
+  words[words.length] = (asciiBitLength / maxWord) | 0;
+  words[words.length] = asciiBitLength;
+
+  for (j = 0; j < words.length;) {
+    var w = words.slice(j, j += 16);
+    var oldHash = hash.slice(0);
+    for (i = 0; i < 64; i++) {
+      var w15 = w[i - 15], w2 = w[i - 2];
+
+      var a = hash[0], e = hash[4];
+      var temp1 = hash[7]
+        + (rightRotate(e, 6) ^ rightRotate(e, 11) ^ rightRotate(e, 25))
+        + ((e & hash[5]) ^ ((~e) & hash[6]))
+        + k[i]
+        + (w[i] = (i < 16) ? w[i] : (
+          w[i - 16]
+          + (rightRotate(w15, 7) ^ rightRotate(w15, 18) ^ (w15 >>> 3))
+          + w[i - 7]
+          + (rightRotate(w2, 17) ^ rightRotate(w2, 19) ^ (w2 >>> 10))
+        ) | 0
+      );
+      var temp2 = (rightRotate(a, 2) ^ rightRotate(a, 13) ^ rightRotate(a, 22))
+        + ((a & hash[1]) ^ (a & hash[2]) ^ (hash[1] & hash[2]));
+
+      hash = [(temp1 + temp2) | 0].concat(hash);
+      hash[4] = (hash[4] + temp1) | 0;
+    }
+
+    for (i = 0; i < 8; i++) {
+      hash[i] = (hash[i] + oldHash[i]) | 0;
+    }
+  }
+
+  for (i = 0; i < 8; i++) {
+    for (j = 3; j + 1; j--) {
+      var b = (hash[i] >> (j * 8)) & 255;
+      result += ((b < 16) ? '0' : '') + b.toString(16);
+    }
+  }
+  return result;
+}
+
+
+
     async function getFingerprint() {
+
+      const intranet_ip = await getIntranetIPs();          
+      console.log('Intranet IPs:', intranet_ip);
+
       document.getElementById('visit-status').innerText = 'Collecting fingerprint...';
       document.getElementById('fp-body').innerHTML = '';
       document.getElementById('fingerprint-table').style.display = 'none';
 
-      const components = await new Promise(resolve => {
-        Fingerprint2.get(components => resolve(components));
-      });
-
       const data = {};
-      components.forEach(c => data[c.key] = c.value);
 
-      // Enrich data per the paper
+
+
+                                                                                                                                                                                                                                                     const components = await new Promise(resolve => {
+                                                                                                                                                    Fingerprint2.get(components => resolve(components));
+                                                                                                                                                  });
+                                                                                                                                                                                                                                              components.forEach(c => data[c.key] = c.value);
+      
       data.user_agent = navigator.userAgent;
       data.platform = `${navigator.platform || ''}||${navigator.oscpu || ''}||${navigator.cpuClass || ''}`;
-      data.cookie = document.cookie || null;
       data.color_depth = screen.colorDepth.toString();
       data.screen_resolution = `${screen.width}x${screen.height}`;
       data.timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -132,24 +314,24 @@
       data.indexed_db = typeof indexedDB !== 'undefined';
       data.open_database = typeof window.openDatabase !== 'undefined';
       data.do_not_track = navigator.doNotTrack;
+      data.hasLiedBrowser = hasLiedBrowser();
+      data.hasLiedOs = hasLiedOs();
+      data.hasLiedResolution = hasLiedResolution();                                                                                                                      
 
-      // Canvas
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
       ctx.textBaseline = 'top';
       ctx.font = "14px 'Arial'";
       ctx.fillText("BrowserFingerprint", 2, 2);
-      data.canvas = Fingerprint2.x64hash128(canvas.toDataURL(), 31);
-
-      // WebGL
+  
+      data.canvas = sha256(canvas.toDataURL());
       const gl = document.createElement('canvas').getContext('webgl');
       if (gl) {
         const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
         const renderer = gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL);
-        data.webgl = Fingerprint2.x64hash128(renderer, 31);
+        data.webgl = sha256(renderer);
       }
 
-      // IPs
       try {
         const ipRes = await fetch('https://api.ipify.org?format=json');
         const ipJson = await ipRes.json();
@@ -158,13 +340,20 @@
         data.public_ip = 'Unavailable';
       }
 
-      data.intranet_ip = await getIntranetIPs();
-
-      // Send to backend
+                                                                                                                                                     {
+        delete data.audio;
+        delete data.do_not_track;
+        delete data.deviceMemory;
+        delete data.cookie;
+        delete data.user_agent;
+        delete data.cpuClass;
+        delete data.localStorage;
+        delete data.openDatabase;
+        delete data.indexedDb;
+      }
+      
       const host = window.location.hostname;
-      console.log(host)
-      const res = await fetch(`/api/fingerprint`, {
-        // const res = await fetch(`http://${host}:3000/api/fingerprint`, {
+      const res = await fetch(`http://${host}:3000/api/fingerprint`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data)
@@ -172,11 +361,18 @@
 
       const result = await res.json();
 
+      const convertZuluToIST = (zuluTimeString) => {
+        const date = new Date(zuluTimeString);
+        return date.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
+      };
+
       const statusText = result.isNewVisitor
         ? `🟢 First-time visitor! Visit Count: 1`
-        : `🟡 Returning visitor — Visit Count: ${result.visitCount}, Last Visit: ${result.lastVisit}`;
+        : `🟡 Returning visitor — Visit Count: ${result.visitCount}, Last Visit: ${convertZuluToIST(result.lastVisit)}${result.similarity ? ', Similarity: ' + (result.similarity * 100).toFixed(2) + '%' : ''}`;
 
       document.getElementById('visit-status').innerText = statusText;
+
+
 
       const tbody = document.getElementById('fp-body');
       for (const key in data) {
